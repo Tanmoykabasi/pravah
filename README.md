@@ -1,20 +1,23 @@
 # PRAVAH — Predictive Runoff Assessment & Vulnerability Alert Hub
 
-A hackathon prototype that demonstrates **Cloud-to-Edge** flash-flood prediction:
-the cloud (FastAPI simulator) pushes escalating risk telemetry, the PWA caches
-the hazard polygon into IndexedDB, and the edge (browser) runs a pure-JS
-ray-casting point-in-polygon check to trigger an offline SOS even when the
-network is gone.
+PRAVAH is a modern, edge-first Early Warning System (EWS) designed for Himalayan river basins. It pairs cloud-based satellite and hydrological telemetry streaming with local browser-based geospatial ray casting, guaranteeing emergency SOS escalation even during complete communication blackouts.
 
-> **Demo scenario:** Type `Chungthang` into the search bar to fire up the
-> *Teesta 2023 Flood Simulator*. Watch the risk score climb, click
-> **Simulate Network Blackout**, and the blue GPS dot will walk straight into
-> the red danger polygon. The screen flashes red, a siren wails, and a
-> one-tap **SEND SOS · 112** anchor appears.
+Styled in a **Modern White & Light-Blue Glass** aesthetic with live interactive Leaflet maps, multi-screen command HUDs, and progressive web app (PWA) caching.
 
 ---
 
-## 1. Architecture
+## 1. Quick Demo Guide & Secret Trigger
+
+> **Presenting PRAVAH:**
+> 1. **Default State**: The app opens displaying **Your Location** (`27.6005°N, 88.6395°E · GPS Locked`), demonstrating real-time civic readiness.
+> 2. **Secret Demo Trigger**: Click the **Your Location** bar or the discreet crosshair button (**`⌖`**) on the right. This instantly switches the location to **Chungthang** (Teesta River Basin, Sikkim) and initiates the live simulation stream.
+> 3. **Automatic SOS at 85 Risk**: Watch the risk score climb (**20 → 45 → 65 → 85**). As soon as the meter hits **85**, the full-screen **SOS Overlay** slams in with a wailing dual-oscillator audio siren and emergency 112 dispatch.
+> 4. **3-Second Dismiss Interlock**: After a 3-second safety interlock, the close button (`✕`) unlocks, allowing the presenter to silence the siren and dismiss the overlay. Clicking the secret `⌖` button again toggles back to "Your Location" for repeated demonstrations.
+> 5. **Network Blackout & Edge Ray-Cast**: Click **Simulate Network Blackout**. The network drops, the offline banner appears, and the simulated GPS dot begins walking east into the hazard zone. The pure JavaScript **Ray-Casting** algorithm locally validates the breach against the cached GeoJSON in IndexedDB, independently triggering the offline SOS pipeline.
+
+---
+
+## 2. Architecture
 
 ```
  ┌────────────────────────┐         SSE /api/simulate/.../stream        ┌──────────────────┐
@@ -31,7 +34,7 @@ network is gone.
                                                                           │      _map        │
                                                                           └────────┬─────────┘
                                                                                    │
-                                                                                   │ on Blackout
+                                                                                   │ on Blackout / GPS walk
                                                                                    ▼
                                                                        Ray-Cast (pure JS)
                                                                        GPS inside polygon?
@@ -42,170 +45,160 @@ network is gone.
                                                                           sms:112 anchor
 ```
 
-### Tech stack
+### Tech Stack
 
-| Layer        | Tool                                                            |
-| ------------ | --------------------------------------------------------------- |
-| Frontend     | React 18 + Vite 5 + Tailwind CSS 3                              |
-| Map          | `react-leaflet` 4 + OpenStreetMap tiles (cached by service w.)  |
-| PWA / cache  | `vite-plugin-pwa` (Workbox runtime caching for shell + tiles)   |
-| Offline DB   | `localforage` (IndexedDB) — key `offline_hazard_map`            |
-| Audio        | Web Audio API (generated siren, no binary asset)                |
-| Backend      | Python 3.11+ · FastAPI · Uvicorn · Server-Sent Events           |
+| Layer        | Tool                                                                         |
+| ------------ | ---------------------------------------------------------------------------- |
+| **Frontend** | React 18 · Vite 5 · Tailwind CSS 3 (Inter + Space Grotesk)                   |
+| **Theme**    | White & Sky-Blue Glass (`backdrop-blur-xl`, custom light glass shadows)      |
+| **Map**      | `react-leaflet` 4 + OpenStreetMap tiles (Workbox service worker caching)     |
+| **PWA**      | `vite-plugin-pwa` (Workbox runtime caching for app shell, icons, audio)       |
+| **Offline DB**| `localforage` (IndexedDB) keys: `offline_hazard_map`, `last_telemetry`, `user_position` |
+| **Audio**    | Web Audio API (real-time generated dual-oscillator emergency siren)          |
+| **Backend**  | Python 3.11+ · FastAPI · Uvicorn · Server-Sent Events (SSE)                  |
 
 ---
 
-## 2. Folder layout
+## 3. Project Structure
 
 ```
 pravah/
 ├── backend/
-│   ├── main.py            # FastAPI app + SSE simulator
-│   └── requirements.txt
+│   ├── main.py                  # FastAPI server + SSE simulator (Teesta 2023 dataset)
+│   └── requirements.txt         # FastAPI, Uvicorn, Pydantic
 └── frontend/
     ├── index.html
     ├── package.json
-    ├── postcss.config.js
-    ├── tailwind.config.js
-    ├── vite.config.js     # PWA plugin + /api proxy
+    ├── tailwind.config.js       # Light sky palette, soft shadows & animations
+    ├── vite.config.js           # PWA manifest, service worker & API proxy
     ├── public/
     │   └── favicon.svg
     └── src/
-        ├── App.jsx                 # orchestrator (stream, GPS, ray-cast, blackout)
+        ├── App.jsx              # Root state orchestrator (SSE, GPS, Ray-Cast, IDB)
         ├── main.jsx
-        ├── index.css               # tailwind + leaflet dark theme
+        ├── index.css            # Glassmorphic primitives (.glass, .glass-strong, pills)
         ├── components/
-        │   ├── Dashboard.jsx       # Bento grid layout
-        │   ├── Header.jsx
-        │   ├── SearchBar.jsx
-        │   ├── RiskScore.jsx       # massive, glow-on-change readout
-        │   ├── MetricsCard.jsx     # rainfall / gauge / flow
-        │   ├── MapView.jsx         # hazard polygon, GPS radar dot, shelter
-        │   ├── NetworkStatus.jsx   # Simulate Blackout button
-        │   ├── ShelterCard.jsx
-        │   ├── TelemetryLog.jsx
-        │   └── SosOverlay.jsx      # flashing red, siren, sms:112 anchor
+        │   ├── AppShell.jsx         # Sticky translucent header + floating 5-tab bottom nav
+        │   ├── Dashboard.jsx        # Hero risk gauge, 3-sensor grid, ward list, topography
+        │   ├── MapScreen.jsx        # Evacuation HUD with Leaflet, hazard polygon & shelters
+        │   ├── AlertsScreen.jsx     # Composite risk banner, ward watchlist & live alerts
+        │   ├── DrillScreen.jsx      # Time-scrubber disaster simulator (T-180 to T-0)
+        │   ├── SettingsScreen.jsx   # System telemetry, IDB cache inspector & reset controls
+        │   ├── SearchBar.jsx        # "Your Location" bar with secret demo trigger (⌖)
+        │   ├── SosOverlay.jsx       # Light-rose glass crisis modal, siren, 3s close button
+        │   ├── OfflineBanner.jsx    # Translucent blackout status banner
+        │   └── Splash.jsx           # Startup synchronization gate
         └── utils/
-            ├── rayCasting.js       # PRD-spec algorithm
-            ├── idb.js              # localforage wrapper
-            ├── simulator.js        # SSE client + local fallback timeline
-            ├── siren.js            # Web Audio siren generator
-            └── format.js           # status → colour mapping
+            ├── rayCasting.js    # PRD-spec Ray-Casting Point-in-Polygon algorithm
+            ├── idb.js           # LocalForage IndexedDB wrapper
+            ├── simulator.js     # SSE client with built-in local fallback
+            ├── siren.js         # Web Audio dual-oscillator sound synthesizer
+            └── format.js        # Color tokens & status pill mappings
 ```
 
 ---
 
-## 3. Running it locally
+## 4. Running Locally
 
-You need **Python 3.11+** and **Node 18+** installed.
+### Prerequisites
+- **Python 3.11+**
+- **Node.js 18+**
 
-### Terminal A — backend (port 8000)
+---
 
-```bash
-cd backend
+### Step 1: Backend Server (Port 8000)
+
+```powershell
+cd "backend"
 python -m pip install -r requirements.txt
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Sanity checks:
-
-```bash
+Health verification:
+```powershell
 curl http://localhost:8000/
 curl http://localhost:8000/api/simulate/chungthang
 ```
 
-### Terminal B — frontend (port 5173)
+---
 
-```bash
-cd frontend
+### Step 2: Frontend Dev Server (Port 5173)
+
+In a second terminal:
+
+```powershell
+cd "frontend"
 npm install
 npm run dev
 ```
 
-Open <http://localhost:5173>. The Vite dev server proxies `/api/*` to the
-FastAPI backend, so SSE works straight from a single origin.
+Open your browser at **`http://localhost:5173/`**.
+
+*(Vite proxies `/api/*` requests to port 8000 automatically).*
 
 ---
 
-## 4. The full demo script (≈ 60 seconds)
+## 5. Live Demonstration Walkthrough
 
-1. **Type "Chungthang"** in the search bar → map flies to 27.60°N, 88.64°E.
-2. The simulator connects to `/api/simulate/chungthang/stream` and a
-   telemetry frame arrives every 5 s. The risk score climbs
-   **20 → 45 → 65 → 85 → 95** (Safe → Critical).
-3. While the dashboard is online, the GeoJSON hazard polygon is written
-   to IndexedDB under `offline_hazard_map`. The map renders it in amber
-   while the score is Watch / Warning, and switches to red at Danger /
-   Critical.
-4. Click **Simulate Network Blackout**. The SSE stream is disconnected,
-   the wrapper border starts flashing rose, and the simulated GPS dot
-   begins walking east.
-5. After ~5 s the dot crosses into the polygon. The local
-   `isInsideHazardZone()` ray-caster flips `true`, the full-screen SOS
-   overlay slams in, a Web-Audio siren wails, and the giant
-   **SEND SOS · 112** anchor appears.
-6. (Optional) Toggle Reconnect to return to Cloud Mode. The cached data
-   remains in IndexedDB so a hard reload still shows the last frame.
+| Step | Action | Expected Behaviour |
+| :--- | :--- | :--- |
+| **1** | Open app | **Splash screen** synchronizes local storage, then unlocks the **Live Dashboard**. |
+| **2** | Default View | Dashboard displays **"Your Location"** with `GPS LOCKED` and basin baseline metrics. |
+| **3** | **Secret Trigger** | Click the **"Your Location"** bar or the **`⌖`** button on the right. Location updates to **Chungthang** and begins streaming live SSE frames. |
+| **4** | Risk Escalation | Risk score climbs: `Safe (20)` → `Watch (45)` → `Warning (65)`. Gauges update in real time. |
+| **5** | **SOS Trigger at 85** | When the score hits **85 (Danger)**, the **SOS Overlay** slams in and the audio siren begins wailing. |
+| **6** | Dismiss SOS | After 3 seconds, click **`✕`** or **"Dismiss emergency overlay"** to silence the siren. |
+| **7** | **Offline Blackout** | Click **"Simulate network blackout"**. The network drops, the offline banner appears, and the GPS dot walks into the cached hazard polygon. The **Edge Ray-Caster** triggers the offline SOS pipeline. |
+| **8** | Multi-screen HUD | Navigate through bottom tabs: **Map** (terrain & shelter route), **Alerts** (ward watchlist), **Drill** (time scrubber), and **System** (IndexedDB cache viewer). |
 
 ---
 
-## 5. Core algorithms (per PRD §5)
+## 6. Core Algorithms
 
-### Hybrid Risk Engine
+### 1. Hybrid Risk Engine (PRD §5)
 
 ```
 R_total = (0.60 × DeterministicScore) + (0.40 × MLProbability)
 ```
+Located in `backend/main.py::_compute_hybrid_risk()` and accessible via `POST /api/hybrid-risk`.
 
-Lives in `backend/main.py::_compute_hybrid_risk()` and is exposed at
-`POST /api/hybrid-risk` for the team that wants to plug in the ML
-component later.
+### 2. Edge Ray-Casting Point-in-Polygon (PRD §4)
 
-### Edge Ray-Cast (frontend, pure JS)
-
-Implemented in `frontend/src/utils/rayCasting.js` exactly as specified:
+Runs locally inside the client (`frontend/src/utils/rayCasting.js`) against the cached GeoJSON hazard polygon:
 
 ```js
-function isPointInPolygon(point, vs) {
-  const x = point[0], y = point[1];
+export function isInsideHazardZone(lon, lat, polygon) {
+  const ring = polygon?.coordinates?.[0];
+  if (!ring || ring.length < 3) return false;
   let inside = false;
-  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-    const xi = vs[i][0], yi = vs[i][1];
-    const xj = vs[j][0], yj = vs[j][1];
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
     const intersect =
-      yi > y !== yj > y &&
-      x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+      yi > lat !== yj > lat &&
+      lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
   return inside;
 }
 ```
 
-The SOS anchor is built as
-
-```html
-<a href="sms:112?body=PRAVAH_SOS_Chungthang_Lat_27.60_Lon_88.64">
-  SEND SOS · 112
-</a>
-```
-
-(Lat / Lon are interpolated from the live simulated GPS coordinates.)
-
 ---
 
-## 6. Telemetry payload (matches PRD §3 verbatim)
+## 7. Telemetry Schema (SSE /api/simulate/chungthang/stream)
 
 ```json
 {
-  "timestamp": "2023-10-03T18:30:00Z",
+  "timestamp": "2026-09-10T18:30:00Z",
   "location": "Chungthang, Sikkim",
   "lat": 27.60,
   "lon": 88.64,
   "risk_score": 85,
   "status": "DANGER",
   "metrics": {
-    "rainfall_intensity": "72 mm/hr",
-    "river_gauge": "+1.8m (Critical)",
+    "rainfall_intensity": "82 mm/hr",
+    "river_gauge": "+2.4m",
+    "soil_moisture": "78%",
     "flow_accumulation": "High"
   },
   "hazard_polygon": {
@@ -225,48 +218,8 @@ The SOS anchor is built as
 
 ---
 
-## 7. UI / UX notes
+## 8. License & Acknowledgments
 
-- **Dark command-center theme** (`bg-slate-950`) with a **Bento grid** of
-  glassmorphic cards (`bg-slate-900/50`, `backdrop-blur-md`,
-  `border-slate-800`, `rounded-2xl`).
-- Status colours: Safe = emerald, Watch = amber, Warning = orange,
-  Danger / Critical = rose. The massive risk number picks up a
-  text-shadow glow that intensifies as the band worsens.
-- Animations are all defined in `tailwind.config.js`:
-  `pulse-red`, `radar`, `flashing-red`, `glow-emerald/amber/rose`.
-- The simulated GPS marker is a Lucide `Crosshair` with a custom
-  `radar-ping` keyframe. It swaps to rose when the user is inside the
-  hazard zone.
-- The **Blackout** state adds an `animate-flashing-red` background tint
-  plus a 4-px animated rose border around the whole viewport.
-
----
-
-## 8. PWA behaviour
-
-`vite-plugin-pwa` is configured in `vite.config.js`:
-
-- Pre-caches the JS / CSS / HTML / SVG / WAV shell on first load.
-- `CacheFirst` strategy for `tile.openstreetmap.org` so the map works
-  even when the simulator is unreachable.
-- `devOptions.enabled: true` keeps the service worker active in dev so
-  the offline demo works on the day.
-
-To test the installable shell:
-
-```bash
-cd frontend
-npm run build
-npm run preview
-```
-
-Open <http://localhost:4173> in Chrome, then DevTools → Application →
-Service Workers → confirm `activated` and the manifest is detected.
-
----
-
-## 9. License & credits
-
-Built as a hackathon prototype. Map tiles © OpenStreetMap contributors.
-No proprietary datasets are bundled.
+- Map tiles © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
+- Icons by [Lucide](https://lucide.dev/).
+- Designed and built as an edge-first disaster mitigation command center for the Teesta River Basin.
