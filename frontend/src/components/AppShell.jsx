@@ -19,8 +19,18 @@ const SCREENS = [
 
 export default function AppShell(props) {
   const [screen, setScreen] = useState('home');
-  const { telemetry, isOffline, inDangerZone, ...rest } = props;
+  const { telemetry, isOffline, inDangerZone, selectedLocation, ...rest } = props;
   const meta = getStatusMeta(telemetry?.status);
+
+  // Trigger SOS when either:
+  // 1) Meter in Chungthang hits 85+
+  // 2) Simulated GPS moves inside hazard zone while offline
+  const isChungthangHighRisk =
+    (selectedLocation?.name === 'Chungthang' ||
+      telemetry?.location?.toLowerCase().includes('chungthang')) &&
+    (telemetry?.risk_score ?? 0) >= 85;
+
+  const isSosActive = (inDangerZone && isOffline) || isChungthangHighRisk;
 
   return (
     <div className="relative min-h-screen w-full pb-28">
@@ -159,9 +169,11 @@ export default function AppShell(props) {
       </nav>
 
       <SosOverlay
-        active={inDangerZone && isOffline}
+        active={isSosActive}
+        riskScore={telemetry?.risk_score}
+        isHighRiskScore={isChungthangHighRisk}
         userPosition={props.userPosition}
-        locationName={telemetry?.location}
+        locationName={telemetry?.location || selectedLocation?.name}
       />
     </div>
   );

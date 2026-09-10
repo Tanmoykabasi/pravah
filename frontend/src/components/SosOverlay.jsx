@@ -8,7 +8,13 @@ import { startSiren, stopSiren } from '../utils/siren.js';
  * Re-skinned to the light-rose glass theme with sound siren, SMS anchor,
  * and a dismiss button available after a 3-second safety interlock.
  */
-export default function SosOverlay({ active, userPosition, locationName }) {
+export default function SosOverlay({
+  active,
+  userPosition,
+  locationName,
+  riskScore,
+  isHighRiskScore,
+}) {
   const [canClose, setCanClose] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
@@ -81,15 +87,20 @@ export default function SosOverlay({ active, userPosition, locationName }) {
           <AlertTriangle className="h-9 w-9" />
         </div>
 
-        <p className="eyebrow text-rose-700">Edge Ray-Cast · CRITICAL</p>
+        <p className="eyebrow text-rose-700">
+          {isHighRiskScore ? 'CRITICAL RISK THRESHOLD · 85+' : 'Edge Ray-Cast · CRITICAL'}
+        </p>
 
         <h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-rose-700 md:text-4xl">
-          You are inside the hazard zone
+          {isHighRiskScore
+            ? `Risk Meter Hit ${Math.round(riskScore || 85)}/100`
+            : 'You are inside the hazard zone'}
         </h2>
 
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-slate-600">
-          The app is offline. The Point-in-Polygon check ran locally against the
-          cached GeoJSON. Move to higher ground immediately and dispatch an SOS.
+          {isHighRiskScore
+            ? 'Basin telemetry for Chungthang has breached the critical threshold (85+). Heavy rainfall and river surge pose imminent flash-flood risk. Evacuate to higher ground immediately.'
+            : 'The app is offline. The Point-in-Polygon check ran locally against the cached GeoJSON. Move to higher ground immediately and dispatch an SOS.'}
         </p>
 
         <div className="mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-rose-50 px-4 py-2 font-mono text-xs text-rose-700 ring-1 ring-rose-200">
